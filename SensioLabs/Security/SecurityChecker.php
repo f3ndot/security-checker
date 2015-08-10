@@ -18,7 +18,9 @@ use SensioLabs\Security\Crawler\DefaultCrawler;
 class SecurityChecker
 {
     private $vulnerabilityCount;
+    private $ignoredVulnerabilityCount;
     private $crawler;
+    private $whitelistPath;
 
     public function __construct(CrawlerInterface $crawler = null)
     {
@@ -49,11 +51,47 @@ class SecurityChecker
 
         list($this->vulnerabilityCount, $vulnerabilities) = $this->crawler->check($lock);
 
+        if ($this->whitelistPath) {
+            $cveIgnoreArray = json_decode(file_get_contents($this->whitelistPath));
+            foreach ($vulnerabilities as $name => &$package) {
+                $package['ignore'] = true;
+
+                foreach ($package['advisories'] as $advisoryPath => &$advisory) {
+                    if (in_array($advisory['cve'], $cveIgnoreArray) ) {
+                        $advisory['ignore'] = true;
+                        $this->ignoredVulnerabilityCount++;
+                    } else {
+                        $advisory['ignore'] = false;
+                        $package['ignore'] = false;
+                    }
+                }
+
+                if ($package['ignore'] === true) {
+                    $this->vulnerabilityCount--;
+                }
+            }
+        }
+
         return $vulnerabilities;
+    }
+
+    public function setWhitelistPath($path)
+    {
+        $this->whitelistPath = $path;
     }
 
     public function getLastVulnerabilityCount()
     {
         return $this->vulnerabilityCount;
+    }
+
+    public function getLastIgnoredVulnerabilityCount()
+    {
+        return $this->ignoredVulnerabilityCount;
+    }
+
+    public function getWhitelistPath()
+    {
+        return $this->whitelistPath;
     }
 }

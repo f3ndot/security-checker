@@ -45,6 +45,7 @@ class SecurityCheckerCommand extends Command
                 new InputOption('format', '', InputOption::VALUE_REQUIRED, 'The output format', 'text'),
                 new InputOption('end-point', '', InputOption::VALUE_REQUIRED, 'The security checker server URL'),
                 new InputOption('timeout', '', InputOption::VALUE_REQUIRED, 'The HTTP timeout in seconds'),
+                new InputOption('whitelist', '', InputOption::VALUE_REQUIRED, 'The path to the JSON formatted array of CVEs to ignore'),
             ))
             ->setDescription('Checks security issues in your project dependencies')
             ->setHelp(<<<EOF
@@ -79,6 +80,12 @@ EOF
             $this->checker->setTimeout($timeout);
         }
 
+        if ($path = $input->getOption('whitelist')) {
+            if (file_exists($path)) {
+                $this->checker->setWhitelistPath($path);
+            }
+        }
+
         try {
             $vulnerabilities = $this->checker->check($input->getArgument('lockfile'));
         } catch (ExceptionInterface $e) {
@@ -99,10 +106,17 @@ EOF
                 $formatter = new TextFormatter($this->getHelperSet()->get('formatter'));
         }
 
-        $formatter->displayResults($output, $input->getArgument('lockfile'), $vulnerabilities);
+        $formatter->displayResults($output, $input->getArgument('lockfile'), $vulnerabilities, $this->checker->getWhitelistPath());
 
         if ($this->checker->getLastVulnerabilityCount() > 0) {
             return 1;
+        } else {
+            $ignoredCount = $this->checker->getLastIgnoredVulnerabilityCount();
+            if ($ignoredCount > 0) {
+                $output->writeln(
+                    $this->getHelperSet()->get('formatter')->formatBlock(array('[ALL CVES IGNORED]', $ignoredCount.' CVEs have been ignored and the checker has returned SUCCESS'), 'bg=blue;fg=white', true)
+                );
+            }
         }
     }
 }

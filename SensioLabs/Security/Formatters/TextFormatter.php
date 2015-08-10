@@ -28,10 +28,13 @@ class TextFormatter implements FormatterInterface
      * @param string          $lockFilePath    The file path to the checked lock file
      * @param array           $vulnerabilities An array of vulnerabilities
      */
-    public function displayResults(OutputInterface $output, $lockFilePath, array $vulnerabilities)
+    public function displayResults(OutputInterface $output, $lockFilePath, array $vulnerabilities, $whitelistPath = false)
     {
         $output->writeln("\n<fg=blue>Security Check Report\n~~~~~~~~~~~~~~~~~~~~~</>\n");
         $output->writeln(sprintf('Checked file: <comment>%s</>', realpath($lockFilePath)));
+        if ($whitelistPath) {
+            $output->writeln(sprintf('Ignoring CVEs in file: <comment>%s</>', realpath($whitelistPath)));
+        }
         $output->write("\n");
 
         if ($count = count($vulnerabilities)) {
@@ -60,6 +63,11 @@ class TextFormatter implements FormatterInterface
 
                     if ('' !== $details['link']) {
                         $output->writeln('   '.$details['link']);
+                    }
+
+                    if (isset($details['ignore']) && $details['ignore'] === true) {
+                        $output->writeln($this->formatter->formatBlock(array('  [IGNORED]', '  This CVE has been ignored and won\'t FAILURE the checker'), 'error'));
+                        $output->write("\n");
                     }
 
                     $output->writeln('');
